@@ -16,7 +16,7 @@
     "node": ">=20.19"
   },
   "dependencies": {
-    "@dreamawakelabs/agent-forge": "github:DreamAwakeLabs/agent-forge#bootstrap/initial-implementation",
+    "@dreamawakelabs/agent-forge": "github:DreamAwakeLabs/agent-forge#main",
     "vue": "^3.5.42"
   },
   "devDependencies": {
