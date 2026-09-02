@@ -40,7 +40,7 @@ function validShotIds(session: TennisSession, ids: string[]): string[] {
 }
 
 export function createReplayCapabilities(
-  session: TennisSession,
+  getSession: () => TennisSession,
   state: ReplayState,
 ): Capability<any, any>[] {
   return [
@@ -53,7 +53,7 @@ export function createReplayCapabilities(
       available: () => state.selectedShotId
         ? true
         : { available: false, reason: 'No shot is selected in the workspace.' },
-      execute: () => getShot(session, requireShotSelection(state)),
+      execute: () => getShot(getSession(), requireShotSelection(state)),
     }),
     defineCapability({
       id: 'find_similar_shots',
@@ -79,7 +79,7 @@ export function createReplayCapabilities(
         const anchorId = requireShotSelection(state);
         return {
           anchorId,
-          matches: findSimilarShots(session, anchorId, limit),
+          matches: findSimilarShots(getSession(), anchorId, limit),
           nextStep: 'Call show_shot_set with the relevant match ids to put them into the human workspace.',
         };
       },
@@ -108,11 +108,14 @@ export function createReplayCapabilities(
         additionalProperties: false,
       },
       effect: 'read',
-      execute: ({ baselineIds, comparisonIds }: { baselineIds: string[]; comparisonIds: string[] }) => compareShotSets(
-        session,
-        validShotIds(session, baselineIds),
-        validShotIds(session, comparisonIds),
-      ),
+      execute: ({ baselineIds, comparisonIds }: { baselineIds: string[]; comparisonIds: string[] }) => {
+        const session = getSession();
+        return compareShotSets(
+          session,
+          validShotIds(session, baselineIds),
+          validShotIds(session, comparisonIds),
+        );
+      },
     }),
     defineCapability({
       id: 'show_shot_set',
@@ -138,7 +141,7 @@ export function createReplayCapabilities(
       },
       effect: 'reversible-write',
       execute: ({ shotIds, reason }: { shotIds: string[]; reason?: string }) => {
-        const ids = validShotIds(session, shotIds);
+        const ids = validShotIds(getSession(), shotIds);
         state.visibleShotIds = ids;
         state.selectedShotId = ids[0] ?? state.selectedShotId;
         state.lastAgentAction = reason

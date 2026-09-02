@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { createReplayCapabilities } from './capabilities/replayCapabilities';
 import { useWebMcpCapabilities } from './composables/useWebMcpCapabilities';
 import {
@@ -7,23 +7,78 @@ import {
   getShot,
   METRIC_NAMES,
   type MetricName,
+  type TennisSession,
 } from './domain/session';
+import {
+  fetchSession,
+  parseSession,
+  readSessionParam,
+} from './domain/sessionLoader';
 import { createReplayState } from './state/replayState';
 
+const session = shallowRef<TennisSession>(demoSession);
 const state = reactive(createReplayState(demoSession));
-const capabilities = createReplayCapabilities(demoSession, state);
+const sessionNotice = ref<string | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const capabilities = createReplayCapabilities(() => session.value, state);
 const webMcp = useWebMcpCapabilities(
   capabilities,
   () => state.selectedShotId,
 );
 
+function applySession(next: TennisSession, source: string) {
+  session.value = next;
+  Object.assign(state, createReplayState(next));
+  state.lastAgentAction = `Loaded ${next.shots.length}-shot session "${next.title}" from ${source}.`;
+  sessionNotice.value = null;
+}
+
+function describeError(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+onMounted(async () => {
+  const sessionRef = readSessionParam(window.location.search);
+  if (!sessionRef) {
+    return;
+  }
+  try {
+    applySession(await fetchSession(sessionRef), 'link');
+  } catch (cause) {
+    sessionNotice.value = `Could not load the linked session (${describeError(cause)}) — showing the demo session instead.`;
+  }
+});
+
+async function loadSessionFile(file: File) {
+  try {
+    applySession(parseSession(JSON.parse(await file.text())), file.name);
+  } catch (cause) {
+    sessionNotice.value = `Could not load ${file.name}: ${describeError(cause)}`;
+  }
+}
+
+function onFilePicked(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (file) {
+    void loadSessionFile(file);
+  }
+  (event.target as HTMLInputElement).value = '';
+}
+
+function onDrop(event: DragEvent) {
+  const file = event.dataTransfer?.files?.[0];
+  if (file) {
+    void loadSessionFile(file);
+  }
+}
+
 const selectedShot = computed(() => state.selectedShotId
-  ? getShot(demoSession, state.selectedShotId)
+  ? getShot(session.value, state.selectedShotId)
   : null);
 
 const displayedShots = computed(() => state.visibleShotIds.length > 0
-  ? state.visibleShotIds.map((id) => getShot(demoSession, id))
-  : demoSession.shots);
+  ? state.visibleShotIds.map((id) => getShot(session.value, id))
+  : session.value.shots);
 
 const visibleMode = computed(() => state.visibleShotIds.length > 0);
 
@@ -50,7 +105,11 @@ function formatTime(seconds: number) {
 </script>
 
 <template>
-  <main class="shell">
+  <main
+    class="shell"
+    @dragover.prevent
+    @drop.prevent="onDrop"
+  >
     <header class="topbar">
       <div class="brand-lockup">
         <div class="mark">DA</div>
@@ -67,16 +126,34 @@ function formatTime(seconds: number) {
           <span class="status-dot" />
           {{ webMcp.supported.value ? 'WebMCP ready' : 'WebMCP unavailable · UI demo' }}
         </span>
-        <span class="session-id">{{ demoSession.id }}</span>
+        <span class="session-id">{{ session.id }}</span>
+        <button
+          class="text-button"
+          type="button"
+          @click="fileInput?.click()"
+        >
+          Load JSON
+        </button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="application/json,.json"
+          hidden
+          @change="onFilePicked"
+        >
       </div>
     </header>
+
+    <p v-if="sessionNotice" class="session-notice" role="alert">
+      {{ sessionNotice }}
+    </p>
 
     <section class="workspace-grid">
       <aside class="left-rail panel">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">SESSION</p>
-            <h2>{{ demoSession.title }}</h2>
+            <h2>{{ session.title }}</h2>
           </div>
           <button
             v-if="visibleMode"
@@ -89,9 +166,9 @@ function formatTime(seconds: number) {
         </div>
 
         <div class="session-stats">
-          <span>{{ demoSession.shots.length }} shots</span>
-          <span>{{ demoSession.durationMinutes }} min</span>
-          <span>{{ demoSession.dateLabel }}</span>
+          <span>{{ session.shots.length }} shots</span>
+          <span>{{ session.durationMinutes }} min</span>
+          <span>{{ session.dateLabel }}</span>
         </div>
 
         <div class="shot-list" aria-label="Session shots">
@@ -248,7 +325,7 @@ function formatTime(seconds: number) {
 
     <footer class="footer-note">
       <span>REPLAY ROOM / CHALLENGE BUILD</span>
-      <span>Fixture-backed today · live Tennisbot session adapter next</span>
+      <span>?session=&lt;id or URL&gt; · drop a session JSON anywhere · demo fixture otherwise</span>
     </footer>
   </main>
 </template>

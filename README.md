@@ -49,6 +49,30 @@ document.modelContext
 
 The domain functions do not click or scrape the UI. WebMCP calls the same semantic operations the application itself uses, and UI state updates are visible to the human.
 
+## Loading a real session
+
+The demo fixture is only the fallback. At startup the app checks `?session=<ref>`:
+
+- `?session=<id>` fetches `/api/sessions?id=<id>` (the Blob-backed session store).
+- `?session=<url>` fetches any absolute or same-origin JSON URL.
+- Dropping a session JSON file anywhere on the page (or the Load JSON button) loads it locally with no network.
+
+Every external session is validated against the `TennisSession` schema before it replaces the demo; on any failure the app shows a notice and stays on the demo fixture.
+
+### Session store (`/api/sessions`)
+
+`api/sessions.ts` is a Vercel serverless function backed by Vercel Blob:
+
+- `POST` with a `TennisSession` body and an `x-replay-token` header stores it at `sessions/<id>.json` (overwritable, so re-pushing updates in place) and returns `{ id, shots, blobUrl, viewerPath }`.
+- `GET ?id=<id>` returns the stored session JSON same-origin.
+
+Deployment needs two things on the Vercel project:
+
+1. A connected Blob store (provides `BLOB_READ_WRITE_TOKEN`).
+2. A `REPLAY_PUSH_TOKEN` environment variable — without it, POST is disabled.
+
+The private Tennisbot project pushes sessions here via `python -m tennisbot.replay_export <clips> --push https://<deployment>/api/sessions`.
+
 ## Run locally
 
 Requires Node.js 20.19+.

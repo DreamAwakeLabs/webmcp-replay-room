@@ -263,3 +263,12 @@ h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
   body { min-width: 1024px; }
   .workspace-grid { grid-template-columns: 235px minmax(520px, 1fr) 270px; }
 }
+
+.session-notice {
+  margin: 10px 26px 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 159, 110, 0.4);
+  border-radius: 4px;
+  color: var(--warm);
+  font-size: 11px;
+}
