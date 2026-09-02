@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { demoSession } from '../domain/session';
-import handler, { type SessionsRequest, type SessionsResponse } from './sessionsHandler';
+import handler, { type SessionsRequest, type SessionsResponse } from '../api/sessions';
+import { demoSession } from './domain/session';
 
 const { putMock, headMock } = vi.hoisted(() => ({
   putMock: vi.fn(),
@@ -84,15 +84,22 @@ describe('POST /api/sessions', () => {
     expect(res.statusCode).toBe(503);
   });
 
-  it('rejects an invalid session body with the parse reason', async () => {
-    const res = makeResponse();
-    await handler(makeRequest({
-      method: 'POST',
-      headers: { 'x-replay-token': 'secret-token' },
-      body: { id: 'x' },
-    }), res);
-    expect(res.statusCode).toBe(400);
-    expect((res.body as { error: string }).error).toContain('session.shots');
+  it('rejects structurally invalid bodies with the reason', async () => {
+    for (const [body, needle] of [
+      [{ id: 'x' }, 'session.shots'],
+      [{ id: 'no spaces allowed', shots: [] }, 'session.id'],
+      [[1, 2], 'JSON object'],
+    ] as const) {
+      const res = makeResponse();
+      await handler(makeRequest({
+        method: 'POST',
+        headers: { 'x-replay-token': 'secret-token' },
+        body,
+      }), res);
+      expect(res.statusCode).toBe(400);
+      expect((res.body as { error: string }).error).toContain(needle);
+    }
+    expect(putMock).not.toHaveBeenCalled();
   });
 });
 
