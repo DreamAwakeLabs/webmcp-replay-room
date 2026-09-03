@@ -1,6 +1,7 @@
 import {
   WebMcpAdapter,
   type Capability,
+  type WebMcpModelContext,
   type WebMcpSyncReport,
 } from '@dreamawakelabs/agent-forge';
 import {
@@ -11,12 +12,35 @@ import {
   type WatchSource,
 } from 'vue';
 
+export type WebMcpSurface = 'navigator.modelContext' | 'document.modelContext';
+
+/**
+ * Where the browser exposes the WebMCP Imperative API. The spec (and Chrome's
+ * implementation, which browser agents consume) puts it on `navigator`;
+ * agent-forge's default only looks at `document`, which some polyfills use —
+ * tools registered there are invisible to a navigator-based agent.
+ */
+export function resolveModelContext(): { context: WebMcpModelContext | null; surface: WebMcpSurface | null } {
+  const candidates: Array<[WebMcpSurface, unknown]> = [
+    ['navigator.modelContext', typeof navigator === 'undefined' ? undefined : (navigator as { modelContext?: unknown }).modelContext],
+    ['document.modelContext', typeof document === 'undefined' ? undefined : (document as { modelContext?: unknown }).modelContext],
+  ];
+  for (const [surface, candidate] of candidates) {
+    if (candidate && typeof (candidate as WebMcpModelContext).registerTool === 'function') {
+      return { context: candidate as WebMcpModelContext, surface };
+    }
+  }
+  return { context: null, surface: null };
+}
+
 export function useWebMcpCapabilities(
   capabilities: readonly Capability<any, any>[],
   availabilitySource: WatchSource<unknown>,
 ) {
-  const adapter = new WebMcpAdapter();
+  const resolved = resolveModelContext();
+  const adapter = new WebMcpAdapter({ modelContext: resolved.context });
   const supported = ref(adapter.supported);
+  const surface = ref<WebMcpSurface | null>(resolved.surface);
   const registered = ref<string[]>([]);
   const unavailable = ref<WebMcpSyncReport['unavailable']>([]);
   const error = ref<string | null>(null);
@@ -42,6 +66,7 @@ export function useWebMcpCapabilities(
 
   return {
     supported,
+    surface,
     registered,
     unavailable,
     error,

@@ -124,7 +124,7 @@ function formatTime(seconds: number) {
           :class="webMcp.supported.value ? 'is-live' : 'is-demo'"
         >
           <span class="status-dot" />
-          {{ webMcp.supported.value ? 'WebMCP ready' : 'WebMCP unavailable · UI demo' }}
+          {{ webMcp.supported.value ? `WebMCP ready · ${webMcp.surface.value}` : 'WebMCP unavailable · UI demo' }}
         </span>
         <span class="session-id">{{ session.id }}</span>
         <button
