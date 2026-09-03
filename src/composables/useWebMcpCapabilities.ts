@@ -15,15 +15,15 @@ import {
 export type WebMcpSurface = 'navigator.modelContext' | 'document.modelContext';
 
 /**
- * Where the browser exposes the WebMCP Imperative API. The spec (and Chrome's
- * implementation, which browser agents consume) puts it on `navigator`;
- * agent-forge's default only looks at `document`, which some polyfills use —
- * tools registered there are invisible to a navigator-based agent.
+ * Where the browser exposes the WebMCP Imperative API. The spec moved the
+ * getter to `document.modelContext` (Chrome 150+); `navigator.modelContext`
+ * was the Chrome 149 location, a deprecated alias on 150, and is gone from
+ * 153 — so it is only a short-lived fallback here.
  */
 export function resolveModelContext(): { context: WebMcpModelContext | null; surface: WebMcpSurface | null } {
   const candidates: Array<[WebMcpSurface, unknown]> = [
-    ['navigator.modelContext', typeof navigator === 'undefined' ? undefined : (navigator as { modelContext?: unknown }).modelContext],
     ['document.modelContext', typeof document === 'undefined' ? undefined : (document as { modelContext?: unknown }).modelContext],
+    ['navigator.modelContext', typeof navigator === 'undefined' ? undefined : (navigator as { modelContext?: unknown }).modelContext],
   ];
   for (const [surface, candidate] of candidates) {
     if (candidate && typeof (candidate as WebMcpModelContext).registerTool === 'function') {

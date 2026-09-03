@@ -14,15 +14,15 @@ afterEach(() => {
 });
 
 describe('resolveModelContext', () => {
-  it('prefers the spec surface navigator.modelContext', () => {
-    setSurface(navigator, fake);
-    setSurface(document, { registerTool: async () => {} });
-    expect(resolveModelContext()).toEqual({ context: fake, surface: 'navigator.modelContext' });
+  it('prefers the spec surface document.modelContext (Chrome 150+)', () => {
+    setSurface(document, fake);
+    setSurface(navigator, { registerTool: async () => {} });
+    expect(resolveModelContext()).toEqual({ context: fake, surface: 'document.modelContext' });
   });
 
-  it('falls back to document.modelContext polyfills', () => {
-    setSurface(document, fake);
-    expect(resolveModelContext()).toEqual({ context: fake, surface: 'document.modelContext' });
+  it('falls back to the legacy navigator.modelContext (Chrome 149)', () => {
+    setSurface(navigator, fake);
+    expect(resolveModelContext()).toEqual({ context: fake, surface: 'navigator.modelContext' });
   });
 
   it('ignores objects without registerTool and reports unsupported', () => {
