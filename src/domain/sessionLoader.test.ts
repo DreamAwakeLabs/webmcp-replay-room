@@ -49,6 +49,60 @@ describe('parseSession', () => {
     expect(() => parseSession(session)).toThrow('shots[1].metrics.rotation');
   });
 
+  it('accepts optional shot media with http(s) URLs and relative paths', () => {
+    const session = validSession();
+    const shots = session.shots as Record<string, unknown>[];
+    shots[0]!.media = { clipUrl: 'https://cdn.test/clip.mp4', posterUrl: '/frames/1.jpg' };
+    shots[1]!.media = { posterUrl: 'frames/2.jpg' };
+    shots[2]!.media = {};
+    const parsed = parseSession(session);
+    expect(parsed.shots[0]!.media).toEqual({
+      clipUrl: 'https://cdn.test/clip.mp4',
+      posterUrl: '/frames/1.jpg',
+    });
+    expect(parsed.shots[1]!.media).toEqual({ posterUrl: 'frames/2.jpg' });
+    expect(parsed.shots[2]!.media).toEqual({});
+    expect(parsed.shots[3]!.media).toBeUndefined();
+  });
+
+  it.each([
+    ['javascript:alert(1)'],
+    ['data:video/mp4;base64,AAAA'],
+    ['blob:https://x.test/abc'],
+    ['//evil.test/clip.mp4'],
+    ['/\\evil.test/clip.mp4'],
+    [' javascript:alert(1)'],
+    [''],
+    [42],
+  ])('rejects the media reference %j', (value) => {
+    const session = validSession();
+    (session.shots as Record<string, unknown>[])[0]!.media = { clipUrl: value };
+    expect(() => parseSession(session)).toThrow(SessionParseError);
+  });
+
+  it('rejects media that is not an object', () => {
+    const session = validSession();
+    (session.shots as Record<string, unknown>[])[0]!.media = 'clip.mp4';
+    expect(() => parseSession(session)).toThrow('shots[0].media must be an object');
+  });
+
+  it.each(['measured', 'synthetic'] as const)('accepts courtPositions %s', (value) => {
+    const session = validSession();
+    session.courtPositions = value;
+    expect(parseSession(session).courtPositions).toBe(value);
+  });
+
+  it('leaves courtPositions undefined when absent', () => {
+    expect(parseSession(validSession()).courtPositions).toBeUndefined();
+    expect('courtPositions' in parseSession(validSession())).toBe(false);
+  });
+
+  it.each(['estimated', '', 7, null])('rejects courtPositions %j', (value) => {
+    const session = validSession();
+    session.courtPositions = value;
+    expect(() => parseSession(session)).toThrow(SessionParseError);
+  });
+
   it('rejects duplicate shot ids', () => {
     const session = validSession();
     const shots = session.shots as { id: string }[];

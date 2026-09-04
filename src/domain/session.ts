@@ -10,6 +10,19 @@ export type StrokeType = 'forehand' | 'backhand' | 'serve';
 
 export type ShotMetrics = Record<MetricName, number>;
 
+/** Optional media captured for a shot. Absent means no video/frame exists. */
+export interface ShotMedia {
+  clipUrl?: string;
+  posterUrl?: string;
+}
+
+/**
+ * How the court x/y positions were produced. `measured` = derived from real
+ * tracking; `synthetic` = placeholder positions (Tennisbot exports). Absent
+ * means unknown and is treated as approximate by the UI.
+ */
+export type CourtPositionSource = 'measured' | 'synthetic';
+
 export interface Shot {
   id: string;
   number: number;
@@ -19,6 +32,7 @@ export interface Shot {
   metrics: ShotMetrics;
   note: string;
   court: { x: number; y: number };
+  media?: ShotMedia;
 }
 
 export interface TennisSession {
@@ -27,6 +41,7 @@ export interface TennisSession {
   dateLabel: string;
   durationMinutes: number;
   shots: Shot[];
+  courtPositions?: CourtPositionSource;
 }
 
 export interface MetricComparison {

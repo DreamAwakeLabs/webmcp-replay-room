@@ -1,3 +1,4 @@
+import { coachMessage } from '../domain/coaching';
 import type { MetricName, TennisSession } from '../domain/session';
 
 export interface CoachingPlan {
@@ -22,6 +23,6 @@ export function createReplayState(session: TennisSession): ReplayState {
       focus: null,
       note: '',
     },
-    lastAgentAction: 'Select a shot yourself, then ask an agent to investigate it.',
+    lastAgentAction: coachMessage.welcome(),
   };
 }

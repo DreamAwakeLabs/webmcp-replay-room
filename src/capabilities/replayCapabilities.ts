@@ -10,6 +10,7 @@ import {
   type MetricName,
   type TennisSession,
 } from '../domain/session';
+import { coachMessage } from '../domain/coaching';
 import type { ReplayState } from '../state/replayState';
 
 const emptyObjectSchema = {
@@ -144,9 +145,7 @@ export function createReplayCapabilities(
         const ids = validShotIds(getSession(), shotIds);
         state.visibleShotIds = ids;
         state.selectedShotId = ids[0] ?? state.selectedShotId;
-        state.lastAgentAction = reason
-          ? `Agent showed ${ids.length} shots: ${reason}`
-          : `Agent showed ${ids.length} shots for review.`;
+        state.lastAgentAction = coachMessage.shownShots(ids.length, reason);
         return { visibleShotIds: ids, selectedShotId: state.selectedShotId };
       },
     }),
@@ -170,7 +169,7 @@ export function createReplayCapabilities(
       effect: 'reversible-write',
       execute: ({ metrics }: { metrics: string[] }) => {
         state.highlightedMetrics = metrics.map(assertMetric);
-        state.lastAgentAction = `Agent highlighted ${state.highlightedMetrics.join(', ')}.`;
+        state.lastAgentAction = coachMessage.highlighted(state.highlightedMetrics);
         return { highlightedMetrics: state.highlightedMetrics };
       },
     }),
@@ -197,9 +196,10 @@ export function createReplayCapabilities(
       },
       effect: 'reversible-write',
       execute: ({ focus, note = '' }: { focus: string; note?: string }) => {
-        state.coachingPlan.focus = assertMetric(focus);
+        const metric = assertMetric(focus);
+        state.coachingPlan.focus = metric;
         state.coachingPlan.note = note;
-        state.lastAgentAction = `Agent set next-session focus to ${focus}.`;
+        state.lastAgentAction = coachMessage.focusSaved(metric);
         return { ...state.coachingPlan };
       },
     }),
