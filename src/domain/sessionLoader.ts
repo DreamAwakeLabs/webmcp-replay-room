@@ -1,6 +1,8 @@
 import {
   METRIC_NAMES,
+  type CourtPositionSource,
   type Shot,
+  type ShotMedia,
   type ShotMetrics,
   type TennisSession,
 } from './session';
@@ -15,6 +17,7 @@ import {
 
 const STROKES = new Set(['forehand', 'backhand', 'serve']);
 const OUTCOMES = new Set(['clean', 'late', 'off-balance', 'mishit']);
+const COURT_POSITION_SOURCES = new Set(['measured', 'synthetic']);
 const MAX_SHOTS = 5000;
 
 /** Bare session ids we are willing to turn into an /api/sessions URL. */
@@ -47,6 +50,59 @@ function asNumber(value: unknown, label: string): number {
   return value;
 }
 
+/**
+ * Media references must be http(s) URLs or relative paths. Any other scheme
+ * (javascript:, data:, blob:, ...) is rejected so a fixture can never inject
+ * script or inline payloads into a media element.
+ */
+function isSafeMediaRef(raw: string): boolean {
+  const value = raw.trim();
+  if (value !== raw || value.length === 0) {
+    return false;
+  }
+  if (/^https?:\/\//i.test(value)) {
+    return true;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+    return false;
+  }
+  return !/^[/\\]{2}/.test(value);
+}
+
+function asMediaRef(value: unknown, label: string): string {
+  const ref = asString(value, label);
+  if (!isSafeMediaRef(ref)) {
+    fail(`${label} must be an http(s) URL or a relative path`);
+  }
+  return ref;
+}
+
+function parseMedia(value: unknown, label: string): ShotMedia | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const record = asRecord(value, label);
+  const media: ShotMedia = {};
+  if (record.clipUrl !== undefined) {
+    media.clipUrl = asMediaRef(record.clipUrl, `${label}.clipUrl`);
+  }
+  if (record.posterUrl !== undefined) {
+    media.posterUrl = asMediaRef(record.posterUrl, `${label}.posterUrl`);
+  }
+  return media;
+}
+
+function parseCourtPositions(value: unknown): CourtPositionSource | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const source = asString(value, 'session.courtPositions');
+  if (!COURT_POSITION_SOURCES.has(source)) {
+    fail(`session.courtPositions must be one of ${[...COURT_POSITION_SOURCES].join(', ')}`);
+  }
+  return source as CourtPositionSource;
+}
+
 function parseMetrics(value: unknown, label: string): ShotMetrics {
   const record = asRecord(value, label);
   const metrics = {} as ShotMetrics;
@@ -71,7 +127,8 @@ function parseShot(value: unknown, label: string): Shot {
     fail(`${label}.outcome must be one of ${[...OUTCOMES].join(', ')}`);
   }
   const court = asRecord(record.court, `${label}.court`);
-  return {
+  const media = parseMedia(record.media, `${label}.media`);
+  const shot: Shot = {
     id: asString(record.id, `${label}.id`),
     number: asNumber(record.number, `${label}.number`),
     stroke: stroke as Shot['stroke'],
@@ -84,6 +141,10 @@ function parseShot(value: unknown, label: string): Shot {
       y: asNumber(court.y, `${label}.court.y`),
     },
   };
+  if (media) {
+    shot.media = media;
+  }
+  return shot;
 }
 
 /** Validate untrusted data into a TennisSession, or throw SessionParseError. */
@@ -103,13 +164,18 @@ export function parseSession(data: unknown): TennisSession {
     }
     seen.add(shot.id);
   }
-  return {
+  const courtPositions = parseCourtPositions(record.courtPositions);
+  const session: TennisSession = {
     id: asString(record.id, 'session.id'),
     title: asString(record.title, 'session.title'),
     dateLabel: asString(record.dateLabel, 'session.dateLabel'),
     durationMinutes: asNumber(record.durationMinutes, 'session.durationMinutes'),
     shots,
   };
+  if (courtPositions) {
+    session.courtPositions = courtPositions;
+  }
+  return session;
 }
 
 /** The `?session=` value from a location search string, or null. */
