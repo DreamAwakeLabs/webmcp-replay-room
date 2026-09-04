@@ -217,24 +217,33 @@ describe('App similar shots and comparison', () => {
 });
 
 describe('App court panel', () => {
-  it('treats a missing courtPositions field as untracked in Analysis mode', async () => {
-    setSearch('?mode=analysis');
+  it('never renders the court in Player mode', async () => {
     const wrapper = await mountApp();
 
     expect(wrapper.find('.court-map').exists()).toBe(false);
-    expect(wrapper.text()).toContain('Court positions were not tracked in this session.');
     wrapper.unmount();
   });
 
-  it('renders the court only for measured positions', async () => {
+  it('renders the mini-map in Analysis mode with the approximate caption when positions are unflagged', async () => {
+    setSearch('?mode=analysis');
+    const wrapper = await mountApp();
+
+    expect(wrapper.find('.court-map').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Approximate positions');
+    expect(wrapper.text()).not.toContain('Illustrative placement');
+    wrapper.unmount();
+  });
+
+  it('labels synthetic court positions as illustrative', async () => {
     const session = pushedSession();
-    session.courtPositions = 'measured';
+    session.courtPositions = 'synthetic';
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(session))));
     setSearch('?session=tennisbot-20260706&mode=analysis');
     const wrapper = await mountApp();
 
-    expect(wrapper.find('.court-map').exists()).toBe(true);
-    expect(wrapper.text()).not.toContain('Court positions were not tracked');
+    expect(wrapper.find('.court-map.is-illustrative').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Illustrative placement, court position not tracked');
+    expect(wrapper.text()).not.toContain('Approximate positions');
     wrapper.unmount();
   });
 });

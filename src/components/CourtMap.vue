@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Shot } from '../domain/session';
+import type { CourtPositionSource, Shot } from '../domain/session';
 
 const props = withDefaults(defineProps<{
   shots: Shot[];
   selectedId: string | null;
   comparisonIds: string[];
   compact?: boolean;
-}>(), { compact: false });
+  /** Where court.x/y came from. Synthetic sessions (e.g. Tennisbot exports,
+   *  which do no court tracking) are labelled illustrative, never measured. */
+  source?: CourtPositionSource | null;
+}>(), { compact: false, source: null });
+
+const illustrative = computed(() => props.source === 'synthetic');
+const caption = computed(() => illustrative.value
+  ? 'Illustrative placement, court position not tracked'
+  : 'Approximate positions');
 
 /*
  * Single court in feet: 36 wide (doubles), 78 long, net across the middle.
@@ -82,7 +90,7 @@ const ariaLabel = computed(() => {
   if (comparisonCount.value > 0) {
     parts.push(`${comparisonCount.value} in comparison`);
   }
-  return `${parts.join(', ')}. Approximate positions.`;
+  return `${parts.join(', ')}. ${caption.value}.`;
 });
 
 function diamond(cx: number, cy: number, r: number): string {
@@ -91,14 +99,14 @@ function diamond(cx: number, cy: number, r: number): string {
 </script>
 
 <template>
-  <figure class="court-map" :class="{ 'is-compact': compact }">
+  <figure class="court-map" :class="{ 'is-compact': compact, 'is-illustrative': illustrative }">
     <svg
       :viewBox="`0 0 ${VIEW_W} ${VIEW_H}`"
       role="img"
       :aria-label="ariaLabel"
       class="court"
     >
-      <title>Court map, approximate shot positions</title>
+      <title>Court map, {{ caption.toLowerCase() }}</title>
       <rect :x="LEFT" :y="TOP" :width="WIDTH" :height="LENGTH" class="surface" />
       <rect :x="LEFT" :y="TOP" :width="WIDTH" :height="LENGTH" class="line" />
       <line :x1="LEFT + SINGLES_INSET" :y1="TOP" :x2="LEFT + SINGLES_INSET" :y2="BOTTOM" class="line" />
@@ -127,7 +135,7 @@ function diamond(cx: number, cy: number, r: number): string {
       </g>
     </svg>
     <figcaption class="legend">
-      <span class="caption">Approximate positions</span>
+      <span class="caption">{{ caption }}</span>
       <span class="key">
         <span class="swatch swatch-selected" aria-hidden="true" />Selected
       </span>
@@ -178,6 +186,19 @@ function diamond(cx: number, cy: number, r: number): string {
   fill: var(--quiet);
   stroke: var(--surface);
   stroke-width: 0.4;
+}
+
+/* Synthetic sessions: hollow markers so the map reads as a sketch, not data. */
+.court-map.is-illustrative .dot {
+  fill-opacity: 0.16;
+  stroke: var(--quiet);
+  stroke-opacity: 0.35;
+  stroke-width: 0.2;
+}
+.court-map.is-illustrative .dot.is-selected,
+.court-map.is-illustrative .dot.is-comparison {
+  fill-opacity: 1;
+  stroke: none;
 }
 
 .dot.is-selected {

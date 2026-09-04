@@ -9,6 +9,7 @@ interface MapProps {
   selectedId: string | null;
   comparisonIds: string[];
   compact?: boolean;
+  source?: 'measured' | 'synthetic' | null;
 }
 
 function mountMap(props: Partial<MapProps> = {}) {
@@ -23,6 +24,24 @@ function mountMap(props: Partial<MapProps> = {}) {
 }
 
 describe('CourtMap', () => {
+  it('labels synthetic positions as illustrative in the caption, title and aria-label', () => {
+    const wrapper = mountMap({ source: 'synthetic', selectedId: 'shot-03' });
+    expect(wrapper.classes()).toContain('is-illustrative');
+    expect(wrapper.find('svg').attributes('aria-label')).toBe(
+      'Court map with 12 shots, 1 selected. Illustrative placement, court position not tracked.',
+    );
+    expect(wrapper.find('title').text()).toBe('Court map, illustrative placement, court position not tracked');
+    expect(wrapper.text()).toContain('Illustrative placement, court position not tracked');
+    expect(wrapper.text()).not.toContain('Approximate positions');
+    expect(wrapper.findAll('[data-shot-id]')).toHaveLength(12);
+  });
+
+  it('treats measured and unflagged positions as approximate', () => {
+    expect(mountMap({ source: 'measured' }).classes()).not.toContain('is-illustrative');
+    expect(mountMap({ source: 'measured' }).text()).toContain('Approximate positions');
+    expect(mountMap({ source: null }).text()).toContain('Approximate positions');
+  });
+
   it('draws one marker per shot with an accessible summary', () => {
     const wrapper = mountMap();
     const svg = wrapper.find('svg');

@@ -279,12 +279,14 @@ function clearFocus() {
 }
 
 // ---------------------------------------------------------------------------
-// Court panel (Analysis and Developer modes only, and only for measured
-// positions: an absent courtPositions field is treated as untracked)
+// Court panel: a small contextual mini-map in Analysis and Developer modes,
+// never in Player mode (spec 7, 10A, 27 step 9). Every session carries court
+// x/y, so the panel always renders there; the caption states the source
+// truthfully, and synthetic sessions are drawn as illustrative (spec 4, 11).
 // ---------------------------------------------------------------------------
 
-const showCourt = computed(() => mode.value !== 'player' && session.value.courtPositions === 'measured');
-const courtUntracked = computed(() => mode.value !== 'player' && !showCourt.value);
+const showCourt = computed(() => mode.value !== 'player' && session.value.shots.length > 0);
+const courtSource = computed(() => session.value.courtPositions ?? null);
 
 // ---------------------------------------------------------------------------
 // Coach update + developer drawer
@@ -433,11 +435,9 @@ const durationLabel = computed(() => {
             :shots="displayedShots"
             :selected-id="state.selectedShotId"
             :comparison-ids="comparisonIds"
+            :source="courtSource"
           />
         </section>
-        <p v-else-if="courtUntracked" class="court-note">
-          Court positions were not tracked in this session.
-        </p>
       </div>
 
       <SimilarShotsStrip
@@ -589,11 +589,6 @@ const durationLabel = computed(() => {
   gap: var(--s2);
   padding: var(--s4);
 }
-.court-note {
-  padding: 0 var(--s2);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
 
 /* Developer drawer: fixed at the right edge. At desktop widths the page
    reserves its width so it sits beside the coaching column, not over it. */
@@ -652,8 +647,7 @@ const durationLabel = computed(() => {
   .rail-slot { order: 4; max-height: 50vh; }
   .next-slot { order: 5; }
   .compare-slot { order: 6; }
-  .court-panel,
-  .court-note { order: 7; }
+  .court-panel { order: 7; }
   .strip-slot { order: 8; }
 }
 </style>
