@@ -70,6 +70,9 @@ const outcomeChipClass = computed(() => {
       <div v-else class="placeholder" data-test="empty">
         <p class="placeholder-title">Select a shot to review</p>
       </div>
+      <div v-if="$slots.inset" class="inset" data-test="inset">
+        <slot name="inset" />
+      </div>
     </div>
 
     <div class="caption">
@@ -105,6 +108,19 @@ const outcomeChipClass = computed(() => {
   height: 100%;
   object-fit: contain;
   background: var(--ink);
+}
+
+/* Court mini-map inset (spec 10D): top-right corner of the hero, legible
+   over video or the placeholder. */
+.inset {
+  position: absolute;
+  top: var(--s3);
+  right: var(--s3);
+  width: min(34%, 200px);
+  padding: var(--s2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .placeholder {

@@ -279,14 +279,22 @@ function clearFocus() {
 }
 
 // ---------------------------------------------------------------------------
-// Court panel: a small contextual mini-map in Analysis and Developer modes,
-// never in Player mode (spec 7, 10A, 27 step 9). Every session carries court
-// x/y, so the panel always renders there; the caption states the source
-// truthfully, and synthetic sessions are drawn as illustrative (spec 4, 11).
+// Court mini-map: an inset on the media viewer the player can toggle in every
+// mode (spec 10D hybrid media + mini-map). Hidden by default in Player mode,
+// shown by default in Analysis and Developer modes; the toggle wins either
+// way. The caption states the source truthfully, and synthetic sessions are
+// drawn as illustrative (spec 4, 11).
 // ---------------------------------------------------------------------------
 
-const showCourt = computed(() => mode.value !== 'player' && session.value.shots.length > 0);
+const courtOverride = ref<boolean | null>(null);
+const showCourt = computed(
+  () => (courtOverride.value ?? mode.value !== 'player') && session.value.shots.length > 0,
+);
 const courtSource = computed(() => session.value.courtPositions ?? null);
+
+function toggleCourt() {
+  courtOverride.value = !showCourt.value;
+}
 
 // ---------------------------------------------------------------------------
 // Coach update + developer drawer
@@ -391,11 +399,33 @@ const durationLabel = computed(() => {
       </div>
 
       <div class="center">
-        <ShotMediaViewer
-          class="viewer-slot"
-          :shot="selectedShot"
-          :session="session"
-        />
+        <div class="viewer-slot">
+          <div class="viewer-tools">
+            <button
+              type="button"
+              class="text-button court-toggle"
+              :aria-pressed="showCourt"
+              data-test="court-toggle"
+              @click="toggleCourt"
+            >
+              {{ showCourt ? 'Hide court map' : 'Show court map' }}
+            </button>
+          </div>
+          <ShotMediaViewer
+            :shot="selectedShot"
+            :session="session"
+          >
+            <template v-if="showCourt" #inset>
+              <CourtMap
+                compact
+                :shots="displayedShots"
+                :selected-id="state.selectedShotId"
+                :comparison-ids="comparisonIds"
+                :source="courtSource"
+              />
+            </template>
+          </ShotMediaViewer>
+        </div>
         <section class="panel coach-update" aria-live="polite">
           <p class="eyebrow">Coach update</p>
           <p class="coach-update-text">{{ state.lastAgentAction }}</p>
@@ -429,15 +459,6 @@ const durationLabel = computed(() => {
           @set-focus="setFocus"
           @clear-focus="clearFocus"
         />
-        <section v-if="showCourt" class="panel court-panel" aria-label="Court">
-          <p class="eyebrow">Court</p>
-          <CourtMap
-            :shots="displayedShots"
-            :selected-id="state.selectedShotId"
-            :comparison-ids="comparisonIds"
-            :source="courtSource"
-          />
-        </section>
       </div>
 
       <SimilarShotsStrip
@@ -583,11 +604,18 @@ const durationLabel = computed(() => {
   color: var(--ink);
 }
 
-.court-panel {
+.viewer-slot {
   display: flex;
   flex-direction: column;
   gap: var(--s2);
-  padding: var(--s4);
+  min-width: 0;
+}
+.viewer-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+.court-toggle {
+  min-height: var(--tap);
 }
 
 /* Developer drawer: fixed at the right edge. At desktop widths the page
@@ -647,7 +675,6 @@ const durationLabel = computed(() => {
   .rail-slot { order: 4; max-height: 50vh; }
   .next-slot { order: 5; }
   .compare-slot { order: 6; }
-  .court-panel { order: 7; }
   .strip-slot { order: 8; }
 }
 </style>

@@ -216,21 +216,32 @@ describe('App similar shots and comparison', () => {
   });
 });
 
-describe('App court panel', () => {
-  it('never renders the court in Player mode', async () => {
+describe('App court map', () => {
+  it('is hidden in Player mode until the player toggles it on', async () => {
     const wrapper = await mountApp();
 
     expect(wrapper.find('.court-map').exists()).toBe(false);
+    const toggle = wrapper.find('[data-test="court-toggle"]');
+    expect(toggle.text()).toBe('Show court map');
+    expect(toggle.attributes('aria-pressed')).toBe('false');
+
+    await toggle.trigger('click');
+    expect(wrapper.find('[data-test="inset"] .court-map').exists()).toBe(true);
+    expect(wrapper.find('[data-test="court-toggle"]').text()).toBe('Hide court map');
+    expect(wrapper.text()).toContain('Approximate positions');
+    expect(wrapper.text()).not.toContain('Illustrative placement');
     wrapper.unmount();
   });
 
-  it('renders the mini-map in Analysis mode with the approximate caption when positions are unflagged', async () => {
+  it('shows by default in Analysis mode and can be hidden', async () => {
     setSearch('?mode=analysis');
     const wrapper = await mountApp();
 
-    expect(wrapper.find('.court-map').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Approximate positions');
-    expect(wrapper.text()).not.toContain('Illustrative placement');
+    expect(wrapper.find('[data-test="inset"] .court-map').exists()).toBe(true);
+    expect(wrapper.find('[data-test="court-toggle"]').attributes('aria-pressed')).toBe('true');
+
+    await wrapper.find('[data-test="court-toggle"]').trigger('click');
+    expect(wrapper.find('.court-map').exists()).toBe(false);
     wrapper.unmount();
   });
 
