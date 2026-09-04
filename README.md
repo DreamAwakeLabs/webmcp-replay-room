@@ -73,6 +73,17 @@ Deployment needs two things on the Vercel project:
 
 The private Tennisbot project pushes sessions here via `python -m tennisbot.replay_export <clips> --push https://<deployment>/api/sessions`.
 
+## Browser requirements and driving it from Claude Code
+
+WebMCP is exposed by Chrome 150+ on `document.modelContext` (the `navigator.modelContext` location was Chrome 149 only). Enable the WebMCP entries in `chrome://flags` and relaunch; the status pill then reads "WebMCP ready · document.modelContext" and the Capabilities panel shows 6/6. Chrome 152 invokes tools as `execute(input)` with a single argument; `src/composables/useWebMcpCapabilities.ts` normalizes that before agent-forge's wrapper (`adaptModelContext`), so the app works on agent-forge builds from before its own fix.
+
+Claude in Chrome does not consume WebMCP. The working agent path is the **WebMCP Bridge** extension + `webmcp-server` (both from [agentcathq/webmcp-react](https://github.com/agentcathq/webmcp-react)), which surfaces the page's tools to Claude Code as `tab-<id>:<tool>`. The Chrome Web Store build of the extension (0.1.0) is stale on Chrome 150+ — build 0.2.0 from source. Two Claude Code skills in `.claude/skills/` automate the whole setup and are picked up automatically when this repo is opened in Claude Code:
+
+- `webmcp-bridge-setup` — Chrome flags, build + load the extension, verify with a harness, troubleshooting table.
+- `webmcp-server-install` — Node on PATH and `claude mcp add` so the tools are available in every session.
+
+A verified run against the Tennisbot session: `get_current_shot` → `find_similar_shots` → `show_shot_set` → `compare_shot_sets` → `highlight_metrics` → `set_next_session_focus`, all executed from Claude Code with the workspace updating live.
+
 ## Run locally
 
 Requires Node.js 20.19+.
