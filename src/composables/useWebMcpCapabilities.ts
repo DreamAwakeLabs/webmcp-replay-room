@@ -33,12 +33,36 @@ export function resolveModelContext(): { context: WebMcpModelContext | null; sur
   return { context: null, surface: null };
 }
 
+/**
+ * Chrome 152 invokes a registered tool as `execute(input)` — one argument,
+ * no options object — while agent-forge's wrapper destructures
+ * `(input, { signal })` and throws before the capability runs. Normalize at
+ * the boundary: always supply an options object with a real AbortSignal and
+ * accept input as either a parsed object or a JSON string.
+ */
+export function adaptModelContext(context: WebMcpModelContext): WebMcpModelContext {
+  return {
+    registerTool(tool, options) {
+      const execute = tool.execute.bind(tool);
+      return context.registerTool({
+        ...tool,
+        execute(input: unknown, execOptions?: { signal?: AbortSignal }) {
+          const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+          return execute(parsed, { signal: execOptions?.signal ?? new AbortController().signal });
+        },
+      }, options);
+    },
+  };
+}
+
 export function useWebMcpCapabilities(
   capabilities: readonly Capability<any, any>[],
   availabilitySource: WatchSource<unknown>,
 ) {
   const resolved = resolveModelContext();
-  const adapter = new WebMcpAdapter({ modelContext: resolved.context });
+  const adapter = new WebMcpAdapter({
+    modelContext: resolved.context ? adaptModelContext(resolved.context) : null,
+  });
   const supported = ref(adapter.supported);
   const surface = ref<WebMcpSurface | null>(resolved.surface);
   const registered = ref<string[]>([]);
